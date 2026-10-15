@@ -154,11 +154,7 @@ function normalizeLead(body, context) {
     selected_offer_id: clean(source.selected_offer_id, 100),
     selected_offer_name: clean(source.selected_offer_name, 180),
     partner_match_preference: clean(source.partner_match_preference, 180),
-    subID1:
-      clean(source.utm_id, 180) ||
-      clean(source.subID1, 180) ||
-      clean(source.utm_campaign, 180) ||
-      clean(source.utm_source, 180),
+    subID1: clean(source.subID1 || source.utm_source, 180),
     subID2: clean(source.subID2 || source.utm_campaign, 180),
     subID3: clean(source.subID3 || source.utm_content, 180),
     page_url: clean(source.landing_page_url, 1000),
@@ -185,10 +181,14 @@ function validateLead(lead, zipAllowlist) {
   }
 
   const invalid = [];
+  // project_timing and project_goal are no longer asked: Champion's posting
+  // spec does not receive them and nothing downstream gates on their value.
+  // project_intent and homeowner_status stay required because sio.js refuses
+  // any lead whose values are not on its accepted lists.
   const required = [
     "first_name", "last_name", "address1", "city", "state", "postal_code",
     "email", "phone_primary", "project_intent", "window_count",
-    "homeowner_status", "project_timing", "project_goal"
+    "homeowner_status"
   ];
   for (const field of required) if (!lead[field]) invalid.push(field);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email)) invalid.push("email");
