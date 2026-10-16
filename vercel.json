@@ -32,6 +32,10 @@
   ],
   "headers": [
     {
+      "source": "/browser-guard-policy.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    },
+    {
       "source": "/api/(.*)",
       "headers": [
         {

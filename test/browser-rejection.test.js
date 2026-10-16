@@ -45,6 +45,7 @@ test("transport and payload guards never schedule writes", async () => {
     [request({...body,reason_codes:["__proto__"]}),400],
     [request({...body,reason_codes:[]}),400],
     [request({...body,page:"../private"}),400],
+    [request({...body,guard_mode:"anything"}),400],
     [request("{"),400],
     [request({...body,extra:"x".repeat(2048)}),413]
   ];
@@ -62,9 +63,21 @@ test("preview produces no writes and capture failures do not fail the endpoint",
 
 test("hp_token enforces the same validation; legacy field is only read when new field is absent",()=>{
   const context={leadId:body.lead_id,now:new Date(),ip:"203.0.113.1",userAgent:"test"};
-  for(const input of [{hp_token:"bot"},{hp_token:undefined,company_website:"bot"}]){
+  for(const input of [{hp_token:"bot"},{hp_token:undefined,wp_verify_token:"bot"},{hp_token:undefined,company_website:"bot"}]){
     const lead=normalizeLead(validLead(input),context);
     assert.throws(()=>validateLead(lead,new Set(["12207"])),e=>e.code==="honeypot_triggered");
   }
   assert.doesNotThrow(()=>validateLead(normalizeLead(validLead({hp_token:"",company_website:"stale autofill"}),context),new Set(["12207"])));
+});
+
+test("log-only observations have distinct codes; old tabs and enforce mode keep blocked codes", async()=>{
+  for(const mode of ['log-only','enforce',undefined]){
+    const writes=[],pending=[];const res=responseRecorder();
+    await createHandler({env,logger,waitUntilImpl:p=>pending.push(p),fetchImpl:async(_url,o)=>{writes.push(JSON.parse(o.body));return {ok:true};}})(request({...body,guard_mode:mode}),res);
+    await Promise.all(pending);
+    assert.equal(res.statusCode,202);
+    assert.deepEqual(writes.map(r=>r.reason_code),body.reason_codes.map(c=>mode==='log-only'?c+'_observed':c));
+    assert.ok(writes.every(r=>r.stage==='client_guard'));
+    if(mode==='log-only')assert.ok(writes.every(r=>r.reason_detail.startsWith('Observed only;')));
+  }
 });

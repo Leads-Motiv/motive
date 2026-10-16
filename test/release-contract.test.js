@@ -15,7 +15,8 @@ for (const [file, steps] of [['index.html', 2], ['Partner.html', 4]]) {
     const map = vm.runInNewContext(`(${parameterMap})`);
     assert.match(map.utm_id, /utm-id$/);
     assert.match(html, /utm_id:\s*sanitize\(raw\.utm_id,\s*180\)/);
-    assert.match(html, /name="hp_token"/);
+    assert.match(html, file === 'index.html' ? /name="wp_verify_token"/ : /name="hp_token"/);
+    assert.match(html, /src="\/browser-guard-policy.js"/);
     assert.doesNotMatch(html, /name="company_website"/);
     const expression = html.match(/SECURE_ROUTER_URL:\s*([^,]+),/)[1];
     for (const search of ['?test=1', '?utm_id=wm_champ_01_fmg&test=1', '?test=0', '']) {

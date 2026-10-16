@@ -1325,6 +1325,7 @@ The same header on the home page detects open_survey=1 and opens the survey.
     </div>
   </div>
 
+  <script src="/browser-guard-policy.js"></script>
   <script>
     (() => {
       "use strict";
@@ -5372,6 +5373,7 @@ inside this browser code. Those must remain in the secure server-side router.
           <input type="hidden" name="utm_medium" id="wp-utm-medium">
 
           <input type="hidden" name="utm_campaign" id="wp-utm-campaign">
+          <input type="hidden" name="utm_id" id="wp-utm-id">
 
           <input type="hidden" name="utm_term" id="wp-utm-term">
 
@@ -5396,7 +5398,7 @@ inside this browser code. Those must remain in the secure server-side router.
               Leave empty
             </label>
 
-            <input id="wp-verify-token" name="wp_verify_token" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <input id="wp-verify-token" name="wp_verify_token" type="text" aria-hidden="true" spellcheck="false" autocapitalize="off" tabindex="-1" autocomplete="off">
           </div>
 
           <section class="wp-step is-active" data-step="1">
@@ -5671,7 +5673,8 @@ inside this browser code. Those must remain in the secure server-side router.
         ENABLED: true,
         MODE: "crm_plus_selected_buyer",
         SECURE_ROUTER_URL:
-          "/api/lead",
+          new URLSearchParams(window.location.search).get("test") === "1"
+            ? "/api/lead?test=1" : "/api/lead",
         REQUEST_TIMEOUT_MS: 15000,
 
         ENDPOINT_A: Object.freeze({
@@ -5986,6 +5989,8 @@ inside this browser code. Those must remain in the secure server-side router.
           utm_source: "#wp-utm-source",
           utm_medium: "#wp-utm-medium",
           utm_campaign: "#wp-utm-campaign",
+          utm_id: "#wp-utm-id",
+
           utm_term: "#wp-utm-term",
           utm_content: "#wp-utm-content",
           gclid: "#wp-gclid",
@@ -6388,6 +6393,34 @@ inside this browser code. Those must remain in the secure server-side router.
         );
 
         updateProgress();
+      }
+
+      function reportBrowserRejection(reasonCodes) {
+        // Whitelist only diagnostic fields; never send the form or honeypot value.
+        let timer;
+        try {
+          const value = (name) => String(form.elements.namedItem(name)?.value || "").trim().slice(0, 180);
+          const sourceTag = getParam("utm_id") || value("utm_id") || value("subID1") || value("utm_campaign") || value("utm_source") || "Motiv";
+          const controller = new AbortController();
+          timer = window.setTimeout(() => controller.abort(), 2000);
+          void fetch("/api/rejection", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            keepalive: true,
+            signal: controller.signal,
+            body: JSON.stringify({
+              reason_codes: reasonCodes,
+              guard_mode: window.ChampionBrowserGuards?.mode === "enforce" ? "enforce" : "log-only",
+              lead_id: createSubmissionId(),
+              source_tag: /^[a-zA-Z0-9_-]{1,180}$/.test(sourceTag) && !/^\d{7,}$/.test(sourceTag) ? sourceTag : null,
+              page: "index"
+            })
+          }).catch(() => {}).finally(() => window.clearTimeout(timer));
+        } catch {
+          window.clearTimeout(timer);
+          // Reporting must not prevent the existing rejection message or retry.
+        }
       }
 
       function showError(message) {
@@ -6872,11 +6905,11 @@ inside this browser code. Those must remain in the secure server-side router.
           consent_checkbox_checked:
             raw.consent === "yes",
 
-          wp_verify_token:
-            sanitize(
-              raw.wp_verify_token,
-              200
-            ),
+          hp_token:
+            // Observe autofill without forwarding it to the server honeypot check.
+            window.ChampionBrowserGuards?.mode === "enforce"
+              ? sanitize(raw.wp_verify_token, 200)
+              : "",
 
           trustedform_cert_url:
             sanitize(
@@ -7005,6 +7038,8 @@ inside this browser code. Those must remain in the secure server-side router.
               raw.utm_campaign,
               180
             ),
+
+          utm_id: sanitize(raw.utm_id, 180),
 
           utm_term:
             sanitize(
@@ -7613,15 +7648,9 @@ inside this browser code. Those must remain in the secure server-side router.
           }
         );
 
-      // "change" as well as "input": some mobile autofill paths fire only
-      // change, which would leave this at 0 and reject a genuine submission.
+      // Mobile autofill can emit change without input.
       ["input", "change"].forEach((type) =>
-        form.addEventListener(
-          type,
-          () => {
-            state.interactionCount += 1;
-          }
-        )
+        form.addEventListener(type, () => { state.interactionCount += 1; })
       );
 
       form.addEventListener(
@@ -7641,19 +7670,19 @@ inside this browser code. Those must remain in the secure server-side router.
               "#wp-verify-token"
             ).value;
 
-          if (
-            honeypot ||
-            Date.now() -
-            state.formOpenedAt <
-            4000 ||
-            state.interactionCount <
-            2
-          ) {
-            showError(
-              "Your request could not be verified. Please refresh and try again."
-            );
+          const rejectionReasons = [];
+          if (honeypot) rejectionReasons.push("honeypot_filled");
+          if (Date.now() - state.formOpenedAt < 4000) rejectionReasons.push("submitted_too_fast");
+          if (state.interactionCount < 2) rejectionReasons.push("insufficient_interaction");
 
-            return;
+          if (rejectionReasons.length) {
+            reportBrowserRejection(rejectionReasons);
+            if (window.ChampionBrowserGuards?.mode === "enforce") {
+              showError(
+                "Your request could not be verified. Please refresh and try again."
+              );
+              return;
+            }
           }
 
           const certificate =

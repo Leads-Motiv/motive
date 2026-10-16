@@ -147,14 +147,18 @@ function normalizeLead(body, context) {
     project_notes: clean(source.project_notes, 500),
     cert: clean(source.cert || source.Cert || source.trustedform_cert_url, 1000),
     consent_checkbox_checked: consentChecked,
-    company_website: clean(source.wp_verify_token ?? source.company_website, 200),
+    hp_token: clean(source.hp_token ?? source.wp_verify_token ?? source.company_website, 200),
     selected_recipient: normalizePage(source) === "partner"
       ? clean(source.partner_display || source.selected_offer_name || "Champion Windows", 180)
       : "Champion Windows",
     selected_offer_id: clean(source.selected_offer_id, 100),
     selected_offer_name: clean(source.selected_offer_name, 180),
     partner_match_preference: clean(source.partner_match_preference, 180),
-    subID1: clean(source.subID1 || source.utm_source, 180),
+    subID1:
+      clean(source.utm_id, 180) ||
+      clean(source.subID1 || source.subid1 || source.sub1, 180) ||
+      clean(source.utm_campaign, 180) ||
+      clean(source.utm_source, 180),
     subID2: clean(source.subID2 || source.utm_campaign, 180),
     subID3: clean(source.subID3 || source.utm_content, 180),
     page_url: clean(source.landing_page_url, 1000),
@@ -176,7 +180,7 @@ function validateTrustedFormUrl(value) {
 }
 
 function validateLead(lead, zipAllowlist) {
-  if (lead.company_website) {
+  if (lead.hp_token) {
     throw new PipelineError(400, "honeypot_triggered", "The request could not be verified.", "INVALID");
   }
 

@@ -1325,6 +1325,7 @@ The same header on the home page detects open_survey=1 and opens the survey.
     </div>
   </div>
 
+  <script src="/browser-guard-policy.js"></script>
   <script>
     (() => {
       "use strict";
@@ -6495,6 +6496,7 @@ eligibility, window-count requirements, offer routing, and partner preference.
             signal: controller.signal,
             body: JSON.stringify({
               reason_codes: reasonCodes,
+              guard_mode: window.ChampionBrowserGuards?.mode === "enforce" ? "enforce" : "log-only",
               lead_id: createSubmissionId(),
               source_tag: /^[a-zA-Z0-9_-]{1,180}$/.test(sourceTag) && !/^\d{7,}$/.test(sourceTag) ? sourceTag : null,
               page: "partner"
@@ -6916,10 +6918,10 @@ eligibility, window-count requirements, offer routing, and partner preference.
             raw.consent === "yes",
 
           hp_token:
-            sanitize(
-              raw.hp_token,
-              200
-            ),
+            // Observe autofill without forwarding it to the server honeypot check.
+            window.ChampionBrowserGuards?.mode === "enforce"
+              ? sanitize(raw.hp_token, 200)
+              : "",
 
           buyer_route:
             sanitize(raw.buyer_route, 120),
@@ -7446,11 +7448,12 @@ eligibility, window-count requirements, offer routing, and partner preference.
 
           if (rejectionReasons.length) {
             reportBrowserRejection(rejectionReasons);
-            showError(
-              "Your request could not be verified. Please refresh and try again."
-            );
-
-            return;
+            if (window.ChampionBrowserGuards?.mode === "enforce") {
+              showError(
+                "Your request could not be verified. Please refresh and try again."
+              );
+              return;
+            }
           }
 
           const certificate =

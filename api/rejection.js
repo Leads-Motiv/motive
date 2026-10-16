@@ -60,13 +60,20 @@ function createHandler(dependencies = {}) {
         body.reason_codes.some(code => typeof code !== "string" || !Object.hasOwn(REASONS, code))) {
       return reply(res, 400, "invalid_payload");
     }
+    // Missing mode comes from an older enforcing browser tab. Do not relabel it.
+    if (body.guard_mode !== undefined && !["log-only", "enforce"].includes(body.guard_mode)) {
+      return reply(res, 400, "invalid_payload");
+    }
+    const observed = body.guard_mode === "log-only";
     const leadId = UUID.test(body.lead_id || "") ? body.lead_id : crypto.randomUUID();
     // Attribution identifiers only: discard contact-shaped/unsupported values.
     const sourceTag = typeof body.source_tag === "string" && /^[a-zA-Z0-9_-]{1,180}$/.test(body.source_tag) &&
       !/^\d{7,}$/.test(body.source_tag) ? body.source_tag : null;
     for (const code of new Set(body.reason_codes)) {
       scheduleLeadRejection({
-        property: "window-motiv", leadId, reasonCode: code, reasonDetail: REASONS[code],
+        property: "window-motiv", leadId,
+        reasonCode: observed ? `${code}_observed` : code,
+        reasonDetail: observed ? `Observed only; browser submission allowed. ${REASONS[code]}` : REASONS[code],
         stage: "client_guard", sourceTag,
         landingPageUrl: new URL(body.page === "partner" ? "/Partner.html" : "/", origin).href,
         env, fetchImpl: dependencies.fetchImpl || globalThis.fetch,
