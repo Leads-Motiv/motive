@@ -6699,8 +6699,13 @@ eligibility, window-count requirements, offer routing, and partner preference.
             await loadPrimaryZips(true);
         }
 
+        // Null after the retry means the list never loaded: coverage is
+        // unknown, not refused. The server checks its own copy of the list.
+        const zipCoverageKnown =
+          Boolean(approvedZips);
+
         const zipQualified =
-          Boolean(approvedZips) &&
+          zipCoverageKnown &&
           approvedZips.has(zip);
 
         const campaignQualified =
@@ -6781,13 +6786,14 @@ eligibility, window-count requirements, offer routing, and partner preference.
             `Direct requested: ${directRequested}`,
             `Offer: ${state.selectedOfferId}`,
             `Window count: ${count}`,
-            `ZIP qualified: ${zipQualified}`,
+            `ZIP qualified: ${zipCoverageKnown ? zipQualified : "unknown (coverage list unavailable)"}`,
             `Buyer route: ${buyerRoute}`
           ].join("; ");
 
         return {
           preference,
           directRequested,
+          zipCoverageKnown,
           zipQualified,
           campaignQualified,
           buyerRoute,
@@ -7489,7 +7495,10 @@ eligibility, window-count requirements, offer routing, and partner preference.
           const routing =
             await calculateRouting();
 
+          // Only a loaded list can refuse a ZIP here. If it failed to load,
+          // submit and let the server's ZIP check decide.
           if (
+            routing.zipCoverageKnown &&
             !routing.zipQualified
           ) {
             showError(
