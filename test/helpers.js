@@ -50,7 +50,7 @@ function validLead(overrides = {}) {
     project_notes: "Test project",
     cert: "https://cert.trustedform.com/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     consent_checkbox_checked: true,
-    company_website: "",
+    hp_token: "",
     landing_page_url: "https://staging.example.test/",
     referrer: "https://search.example.test/",
     ...overrides

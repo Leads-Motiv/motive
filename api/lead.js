@@ -15,6 +15,9 @@ const { verifyTrustedForm } = require("./_lib/trustedform");
 const { deliverSio } = require("./_lib/sio");
 const { deliverGhl } = require("./_lib/ghl");
 const { createStore } = require("./_lib/store");
+const { scheduleLeadDeliveryRecord } = require("./_lib/lead-delivery");
+const { scheduleTestLead } = require("./_lib/test-lead");
+const { scheduleLeadRejection } = require("./_lib/lead-rejection");
 const { IdempotencyService } = require("./_lib/idempotency");
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -91,7 +94,7 @@ function evidenceFor(lead, transitions, delivery = {}) {
     referring_url: lead.referring_url,
     form_version: lead.form_version,
     checkbox_state: lead.consent_checkbox_checked,
-    honeypot_value: lead.company_website,
+    honeypot_value: lead.hp_token,
     selected_recipient: lead.selected_recipient,
     routing: {
       page: lead.page,
@@ -134,6 +137,8 @@ function createHandler(dependencies = {}) {
       });
     }
 
+    // Never derive routing from body fields, referrer or landing_page_url.
+    const testMode = new URL(req.url || "/", "https://lander.invalid").searchParams.get("test") === "1";
     const now = dependencies.now ? dependencies.now() : new Date();
     const transitions = [];
     let leadId = crypto.randomUUID();
@@ -141,6 +146,17 @@ function createHandler(dependencies = {}) {
     let idempotency;
     let claimed = false;
     let redisFailOpen = false;
+    let rejectionStage = "validation";
+
+    const recordRejection = (reasonCode, reasonDetail, stage) => {
+      scheduleLeadRejection({
+        property: "window-motiv", leadId, reasonCode, reasonDetail, stage,
+        sourceTag: lead?.subID1 || config.sio.sourceIdFallback,
+        landingPageUrl: lead?.page_url,
+        zip: lead?.postal_code, state: lead?.state,
+        env, fetchImpl, logger, waitUntilImpl: dependencies.waitUntilImpl
+      });
+    };
 
     const transition = (state, hop, detail, level) => {
       const item = logTransition({ leadId, state, hop, detail, level, logger });
@@ -178,6 +194,7 @@ function createHandler(dependencies = {}) {
       }
 
       let claim;
+      rejectionStage = "dedup";
       try {
         claim = await idempotency.claim({
           requestKey: lead.client_idempotency_key || lead.client_submission_id,
@@ -204,15 +221,18 @@ function createHandler(dependencies = {}) {
       if (claim.status === "DUPLICATE") {
         leadId = claim.leadId || leadId;
         transition(STATES.DUPLICATE, "dedup", { lookback_days: config.dedupLookbackDays });
-        return sendJson(res, 200, {
+        sendJson(res, 200, {
           success: true,
           lead_id: leadId,
           state: STATES.DUPLICATE,
           duplicate: true
         });
+        recordRejection("duplicate", "Contact already exists within the deduplication window.", "dedup");
+        return;
       }
       claimed = claim.status === "CLAIMED";
 
+      rejectionStage = "trustedform";
       await verifyTrustedForm(lead, config.trustedForm, fetchImpl);
       transition(STATES.TF_RETAINED, "trustedform", { retained: true, matched: true });
 
@@ -229,6 +249,7 @@ function createHandler(dependencies = {}) {
         sio: "pending",
         ghl: "pending"
       });
+      rejectionStage = "validation";
       if (idempotency.enabled) {
         try {
           await idempotency.saveEvidence(leadId, preDeliveryEvidence);
@@ -248,10 +269,32 @@ function createHandler(dependencies = {}) {
         crm: "GoHighLevel"
       });
 
+      rejectionStage = "sio";
       const [sio, ghl] = await Promise.all([
-        deliverSio(lead, config.sio, fetchImpl),
+        deliverSio(lead, config.sio, fetchImpl, { testMode }),
         deliverGhl(lead, config.ghl, fetchImpl)
       ]);
+
+      if (testMode) scheduleTestLead({
+        row: {
+          p_sio_confirmation_id: sio.confirmation_id ?? null,
+          p_email: lead.email, p_phone: lead.phone_primary,
+          p_full_name: `${lead.first_name} ${lead.last_name}`,
+          p_source_ip: lead.ip,
+          p_report_date: new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now),
+          p_identified_by: "window-motiv"
+        }, env, fetchImpl, logger, waitUntilImpl: dependencies.waitUntilImpl
+      });
+
+      scheduleLeadDeliveryRecord({
+        lead,
+        sourceTag: lead.subID1 || config.sio.sourceIdFallback,
+        sio,
+        env,
+        fetchImpl,
+        logger,
+        waitUntilImpl: dependencies.waitUntilImpl
+      });
 
       transition(
         sio.state,
@@ -330,7 +373,11 @@ function createHandler(dependencies = {}) {
       if (claimed && idempotency?.enabled) {
         try { await idempotency.cacheResult(leadId, { http_status: status, body }); } catch { /* logging already occurred */ }
       }
-      return sendJson(res, status, body);
+      sendJson(res, status, body);
+      recordRejection(body.code,
+        known && error.fields.length ? `Invalid fields: ${error.fields.join(", ")}` : body.message,
+        body.code.startsWith("trustedform_") ? "trustedform" : rejectionStage);
+      return;
     }
   };
 }

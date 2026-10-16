@@ -5191,6 +5191,7 @@ eligibility, window-count requirements, offer routing, and partner preference.
             name="utm_campaign"
             id="wp-offer-utm-campaign"
           >
+          <input type="hidden" name="utm_id" id="wp-offer-utm-id">
 
           <input
             type="hidden"
@@ -5231,13 +5232,13 @@ eligibility, window-count requirements, offer routing, and partner preference.
               overflow:hidden;
             "
           >
-            <label for="wp-offer-company-website">
+            <label for="wp-offer-hp-token">
               Leave empty
             </label>
 
             <input
-              id="wp-offer-company-website"
-              name="company_website"
+              id="wp-offer-hp-token"
+              name="hp_token" type="text" aria-hidden="true" spellcheck="false" autocapitalize="off"
               tabindex="-1"
               autocomplete="off"
             >
@@ -5833,7 +5834,8 @@ eligibility, window-count requirements, offer routing, and partner preference.
           "Motiv Brands Group, LLC DBA Window Motiv",
 
         SECURE_ROUTER_URL:
-          "/api/lead",
+          new URLSearchParams(window.location.search).get("test") === "1"
+            ? "/api/lead?test=1" : "/api/lead",
 
         PRIMARY_ZIP_COVERAGE_URL:
           "/data/champion_zip_coverage_normalized.csv",
@@ -6145,6 +6147,8 @@ eligibility, window-count requirements, offer routing, and partner preference.
           utm_source: "#wp-offer-utm-source",
           utm_medium: "#wp-offer-utm-medium",
           utm_campaign: "#wp-offer-utm-campaign",
+          utm_id: "#wp-offer-utm-id",
+
           utm_term: "#wp-offer-utm-term",
           utm_content: "#wp-offer-utm-content",
           gclid: "#wp-offer-gclid",
@@ -6473,6 +6477,33 @@ eligibility, window-count requirements, offer routing, and partner preference.
 
         state.lastFocusedElement
           ?.focus?.();
+      }
+
+      function reportBrowserRejection(reasonCodes) {
+        // Whitelist only diagnostic fields; never send the form or honeypot value.
+        let timer;
+        try {
+          const value = (name) => String(form.elements.namedItem(name)?.value || "").trim().slice(0, 180);
+          const sourceTag = getParam("utm_id") || value("utm_id") || value("subID1") || value("utm_campaign") || value("utm_source") || "Motiv";
+          const controller = new AbortController();
+          timer = window.setTimeout(() => controller.abort(), 2000);
+          void fetch("/api/rejection", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            keepalive: true,
+            signal: controller.signal,
+            body: JSON.stringify({
+              reason_codes: reasonCodes,
+              lead_id: createSubmissionId(),
+              source_tag: /^[a-zA-Z0-9_-]{1,180}$/.test(sourceTag) && !/^\d{7,}$/.test(sourceTag) ? sourceTag : null,
+              page: "partner"
+            })
+          }).catch(() => {}).finally(() => window.clearTimeout(timer));
+        } catch {
+          window.clearTimeout(timer);
+          // Reporting must not prevent the existing rejection message or retry.
+        }
       }
 
       function showError(message) {
@@ -6884,9 +6915,9 @@ eligibility, window-count requirements, offer routing, and partner preference.
           consent_checkbox_checked:
             raw.consent === "yes",
 
-          company_website:
+          hp_token:
             sanitize(
-              raw.company_website,
+              raw.hp_token,
               200
             ),
 
@@ -6966,6 +6997,8 @@ eligibility, window-count requirements, offer routing, and partner preference.
 
           utm_campaign:
             sanitize(raw.utm_campaign, 180),
+
+          utm_id: sanitize(raw.utm_id, 180),
 
           utm_term:
             sanitize(raw.utm_term, 180),
@@ -7403,15 +7436,16 @@ eligibility, window-count requirements, offer routing, and partner preference.
 
           const honeypot =
             root.querySelector(
-              "#wp-offer-company-website"
+              "#wp-offer-hp-token"
             ).value;
 
-          if (
-            honeypot ||
-            Date.now() - state.formOpenedAt <
-              3000 ||
-            state.interactionCount < 2
-          ) {
+          const rejectionReasons = [];
+          if (honeypot) rejectionReasons.push("honeypot_filled");
+          if (Date.now() - state.formOpenedAt < 3000) rejectionReasons.push("submitted_too_fast");
+          if (state.interactionCount < 2) rejectionReasons.push("insufficient_interaction");
+
+          if (rejectionReasons.length) {
+            reportBrowserRejection(rejectionReasons);
             showError(
               "Your request could not be verified. Please refresh and try again."
             );

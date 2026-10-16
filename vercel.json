@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm test",
   "functions": {
     "api/lead.js": {
       "maxDuration": 30

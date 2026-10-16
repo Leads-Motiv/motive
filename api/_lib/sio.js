@@ -143,7 +143,8 @@ function parseSioResponse(httpStatus, body) {
   };
 }
 
-async function deliverSio(lead, config, fetchImpl = fetch) {
+async function deliverSio(lead, config, fetchImpl = fetch, { testMode = false } = {}) {
+  const endpoint = testMode === true ? "https://exchange.standardinformation.io/post_test" : config.postUrl;
   const page = lead?.page;
   const keySource = SIO_KEY_SOURCE_BY_PAGE[page];
   const routing = { page, credential_source: keySource || "unmapped" };
@@ -165,7 +166,7 @@ async function deliverSio(lead, config, fetchImpl = fetch) {
       ...routing
     };
   }
-  if (!config.postUrl) {
+  if (!endpoint) {
     return {
       state: "QUARANTINE",
       accepted: false,
@@ -174,7 +175,7 @@ async function deliverSio(lead, config, fetchImpl = fetch) {
     };
   }
   let url;
-  try { url = new URL(config.postUrl); } catch { /* handled below */ }
+  try { url = new URL(endpoint); } catch { /* handled below */ }
   if (!url || url.protocol !== "https:") {
     return {
       state: "QUARANTINE",
@@ -199,7 +200,7 @@ async function deliverSio(lead, config, fetchImpl = fetch) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
   try {
-    const response = await fetchImpl(config.postUrl, {
+    const response = await fetchImpl(endpoint, {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,

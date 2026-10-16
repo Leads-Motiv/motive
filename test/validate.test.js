@@ -73,7 +73,7 @@ test("keeps the window-count qualification helper exact", () => {
 test("enforces consent, honeypot, homeowner, intent, count, and ZIP qualification", () => {
   const cases = [
     [{ consent_checkbox_checked: false }, "validation_failed"],
-    [{ company_website: "spam.example" }, "honeypot_triggered"],
+    [{ hp_token: "spam.example" }, "honeypot_triggered"],
     [{ homeowner_status: "Renter" }, "homeowner_not_eligible"],
     [{ homeowner_status: "Landlord or property manager" }, "homeowner_not_eligible"],
     [{ project_intent: "Repair or service an existing window" }, "project_not_eligible"],
