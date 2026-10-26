@@ -3613,74 +3613,6 @@ inside this browser code. Those must remain in the secure server-side router.
       width: 1.25rem;
     }
 
-    #wp-window-page .wp-selection-banner {
-      display: none;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      margin:
-        1.25rem 1.85rem 0;
-      padding: 0.85rem 1rem;
-      border:
-        0.0625rem solid rgba(0, 91, 170, 0.22);
-      border-radius: 0.9rem;
-      color: var(--wp-navy-900);
-      background:
-        linear-gradient(135deg,
-          var(--wp-blue-050),
-          var(--wp-blue-100));
-    }
-
-    #wp-window-page .wp-selection-banner.is-visible {
-      display: flex;
-    }
-
-    #wp-window-page .wp-selection-banner__content {
-      display: flex;
-      min-width: 0;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    #wp-window-page .wp-selection-banner__icon {
-      display: grid;
-      width: 2.4rem;
-      aspect-ratio: 1;
-      flex: 0 0 auto;
-      place-items: center;
-      border-radius: 0.65rem;
-      color: var(--wp-white);
-      background: var(--wp-blue-700);
-    }
-
-    #wp-window-page .wp-selection-banner__icon svg {
-      width: 1.35rem;
-    }
-
-    #wp-window-page .wp-selection-banner strong {
-      display: block;
-      font-size: 0.9rem;
-    }
-
-    #wp-window-page .wp-selection-banner span span {
-      display: block;
-      margin-top: 0.05rem;
-      color: var(--wp-ink-700);
-      font-size: 0.77rem;
-    }
-
-    #wp-window-page .wp-selection-banner__clear {
-      flex: 0 0 auto;
-      padding: 0.4rem 0.55rem;
-      border: 0;
-      cursor: pointer;
-      color: var(--wp-blue-700);
-      background: transparent;
-      font-size: 0.74rem;
-      font-weight: 900;
-      text-decoration: underline;
-    }
-
     #wp-window-page .wp-progress {
       padding: 1.25rem 1.85rem 0;
     }
@@ -4193,11 +4125,6 @@ inside this browser code. Those must remain in the secure server-side router.
       #wp-window-page .wp-modal__top {
         padding:
           max(1.4rem, env(safe-area-inset-top)) 4.1rem 1.25rem var(--wp-fluid-left);
-      }
-
-      #wp-window-page .wp-selection-banner {
-        margin:
-          1rem var(--wp-fluid-right) 0 var(--wp-fluid-left);
       }
 
       #wp-window-page .wp-progress {
@@ -5275,27 +5202,6 @@ inside this browser code. Those must remain in the secure server-side router.
         </button>
       </div>
 
-      <div class="wp-selection-banner" id="wp-selection-banner" aria-live="polite">
-        <div class="wp-selection-banner__content">
-          <span class="wp-selection-banner__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.8" />
-
-              <path d="M12 4v16M4 12h16" stroke="currentColor" stroke-width="1.8" />
-            </svg>
-          </span>
-
-          <span>
-            <strong>Window style selected</strong>
-            <span id="wp-selection-copy"></span>
-          </span>
-        </div>
-
-        <button class="wp-selection-banner__clear" id="wp-clear-style" type="button">
-          Clear
-        </button>
-      </div>
-
       <div id="wp-form-interface">
         <div class="wp-progress">
           <div class="wp-progress__labels">
@@ -5768,16 +5674,6 @@ inside this browser code. Those must remain in the secure server-side router.
           "#wp-preferred-window-style"
         );
 
-      const selectionBanner =
-        root.querySelector(
-          "#wp-selection-banner"
-        );
-
-      const selectionCopy =
-        root.querySelector(
-          "#wp-selection-copy"
-        );
-
       function loadTrustedForm() {
         if (
           document.querySelector(
@@ -6186,10 +6082,6 @@ inside this browser code. Those must remain in the secure server-side router.
         root.querySelector(
           "#wp-style-tile-section"
         ).value = "";
-
-        selectionBanner.classList.remove(
-          "is-visible"
-        );
       }
 
       function applySelectedStyle(
@@ -6226,13 +6118,6 @@ inside this browser code. Those must remain in the secure server-side router.
           "#wp-style-tile-section"
         ).value =
           "window_styles";
-
-        selectionCopy.textContent =
-          `${cleanStyle} has been added as your initial preference.`;
-
-        selectionBanner.classList.add(
-          "is-visible"
-        );
       }
 
       function resetFormState() {
@@ -7494,15 +7379,6 @@ inside this browser code. Those must remain in the secure server-side router.
           );
         });
 
-      root
-        .querySelector(
-          "#wp-clear-style"
-        )
-        .addEventListener(
-          "click",
-          clearSelectedStyle
-        );
-
       preferredStyleField
         .addEventListener(
           "change",
@@ -7526,14 +7402,6 @@ inside this browser code. Those must remain in the secure server-side router.
               "#wp-style-tile-name"
             ).value =
               selectedStyle;
-
-            selectionCopy.textContent =
-              `${selectedStyle} is your current preference.`;
-
-            selectionBanner
-              .classList.add(
-                "is-visible"
-              );
 
             root
               .querySelectorAll(
@@ -7778,11 +7646,6 @@ inside this browser code. Those must remain in the secure server-side router.
             formInterface
               .style.display =
               "none";
-
-            selectionBanner
-              .classList.remove(
-                "is-visible"
-              );
 
             thankYou
               .classList.add(
