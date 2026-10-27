@@ -4182,6 +4182,102 @@ inside this browser code. Those must remain in the secure server-side router.
         transition-duration: 0.01ms !important;
       }
     }
+
+    /* ---- Keep the action button above the fold -------------------------
+       Measured at 1440x800 the dialog ran to 866px on step 1 and 959px on
+       step 2, putting Continue and Submit below the fold. The dialog is now
+       capped to the viewport, the fields scroll inside it, and the action
+       row is pinned to the bottom so the button is reachable at any screen
+       height rather than only on tall ones. */
+    #wp-window-page .wp-modal__dialog {
+      display: flex;
+      max-height: calc(100dvh - 2rem);
+      flex-direction: column;
+    }
+
+    #wp-window-page #wp-form-interface {
+      display: flex;
+      min-height: 0;
+      flex-direction: column;
+    }
+
+    /* The scroll container. Its bottom padding moves onto the pinned row so
+       the row sits flush when the fields overflow. */
+    #wp-window-page .wp-form {
+      min-height: 0;
+      flex: 1 1 auto;
+      padding-bottom: 0;
+      overflow-y: auto;
+    }
+
+    #wp-window-page .wp-result {
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow-y: auto;
+    }
+
+    #wp-window-page .wp-form__actions {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      margin-top: 1.05rem;
+      padding-block: 0.85rem;
+      border-top: 0.0625rem solid var(--wp-line);
+      background: var(--wp-white);
+    }
+
+    /* Tighter chrome: every row saved here is a row the visitor does not
+       have to scroll past to reach the button. */
+    #wp-window-page .wp-modal__top {
+      padding-top: 1.15rem;
+      padding-bottom: 1rem;
+    }
+
+    #wp-window-page .wp-progress {
+      padding-top: 0.85rem;
+    }
+
+    /* The step copy used to provide this gap; without it the heading sat
+       directly on top of the first question. Same selector as the rule
+       above that zeroes it, because that one carries a pseudo-class and
+       would otherwise win on specificity. */
+    #wp-window-page .wp-step > .wp-choice-legend:first-of-type {
+      margin-top: 0.95rem;
+    }
+
+    #wp-window-page .wp-field label {
+      margin-bottom: 0.32rem;
+    }
+
+    #wp-window-page .wp-field input,
+    #wp-window-page .wp-field select {
+      min-height: 2.95rem;
+    }
+
+    #wp-window-page .wp-field-grid {
+      gap: 0.65rem;
+    }
+
+    #wp-window-page .wp-consent {
+      margin-top: 0.9rem;
+      padding: 0.8rem;
+    }
+
+    @media (max-width: 40rem) {
+      #wp-window-page .wp-modal__dialog {
+        max-height: 100dvh;
+      }
+
+      /* Full-screen on phones, so the pinned row clears the home indicator. */
+      #wp-window-page .wp-form__actions {
+        padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
+      }
+
+      #wp-window-page .wp-field input,
+      #wp-window-page .wp-field select {
+        min-height: 3.1rem;
+      }
+    }
   </style>
 
   <main>
@@ -5314,11 +5410,6 @@ inside this browser code. Those must remain in the secure server-side router.
               Let&rsquo;s start with your project
             </h3>
 
-            <p class="wp-step__copy">
-              Two quick questions, then where to send your quote. Most
-              homeowners finish in under a minute.
-            </p>
-
             <p class="wp-choice-legend">How many windows are you replacing?</p>
 
 
@@ -5372,12 +5463,6 @@ inside this browser code. Those must remain in the secure server-side router.
                   maxlength="5" pattern="\d{5}" required>
               </div>
             </div>
-
-            <ul class="wp-value-list">
-              <li>Your quote is free, and there is no obligation to buy.</li>
-              <li>You are matched with providers who already serve your ZIP.</li>
-              <li>No upfront pricing questions and no deposit to get a quote.</li>
-            </ul>
 
             <div class="wp-form__actions">
               <button class="wp-button wp-button--primary wp-form__next" type="button" data-wp-next-step>
@@ -6372,6 +6457,16 @@ inside this browser code. Those must remain in the secure server-side router.
               showError(
                 "Please review and accept the consent disclosure."
               );
+
+              // The fields scroll inside the dialog now, so the consent box
+              // can sit off-screen when the button is pressed. Showing the
+              // error alone would scroll away from the thing to tick.
+              field
+                .closest(".wp-consent")
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center"
+                });
 
               return false;
             }
