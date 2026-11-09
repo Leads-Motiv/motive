@@ -10,9 +10,11 @@
   "rewrites": [
     { "source": "/privacy-policy", "destination": "/privacy-policy.html" },
     { "source": "/terms-of-use", "destination": "/terms-of-use.html" },
-    { "source": "/disclosures/marketing-partners", "destination": "/disclosures/marketing-partners.html" }
+    { "source": "/disclosures/marketing-partners", "destination": "/disclosures/marketing-partners.html" },
+    { "source": "/calls", "destination": "/calls.html" }
   ],
   "redirects": [
+    { "source": "/calls.html", "destination": "/calls", "permanent": true },
     { "source": "/privacy.html", "destination": "/privacy-policy", "permanent": true },
     { "source": "/privacy", "destination": "/privacy-policy", "permanent": true },
     { "source": "/privacy-policy.html", "destination": "/privacy-policy", "permanent": true },
