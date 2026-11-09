@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm test",
+  "outputDirectory": ".",
   "functions": {
     "api/lead.js": {
       "maxDuration": 30
@@ -21,8 +23,9 @@
     { "source": "/terms-of-service", "destination": "/terms-of-use", "permanent": true },
     { "source": "/terms-of-use.html", "destination": "/terms-of-use", "permanent": true },
     { "source": "/disclosures/marketing-partners.html", "destination": "/disclosures/marketing-partners", "permanent": true },
-    { "source": "/affiliate-disclosure", "destination": "/Disclosure.html", "permanent": true },
-    { "source": "/Disclosure", "destination": "/Disclosure.html", "permanent": true },
+    { "source": "/affiliate-disclosure", "destination": "/disclosures/marketing-partners", "permanent": true },
+    { "source": "/Disclosure", "destination": "/disclosures/marketing-partners", "permanent": true },
+    { "source": "/Disclosure.html", "destination": "/disclosures/marketing-partners", "permanent": true },
     { "source": "/our-partner-offers", "destination": "/Partner.html", "permanent": true },
     { "source": "/Partner", "destination": "/Partner.html", "permanent": true },
     { "source": "/thank-you", "destination": "/Thank.html", "permanent": true },
@@ -30,6 +33,10 @@
     { "source": "/home-992457", "destination": "/", "permanent": true }
   ],
   "headers": [
+    {
+      "source": "/browser-guard-policy.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    },
     {
       "source": "/api/(.*)",
       "headers": [
